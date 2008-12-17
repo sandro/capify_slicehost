@@ -1,19 +1,97 @@
-if filereadable("/etc/vimrc")
-  source /etc/vimrc
+set ai ts=2 sts=2 et sw=2
+set autoread
+set background=light
+set complete-=i " Searching includes can be slow
+set dictionary+=/usr/share/dict/words
+set display=lastline
+set hidden
+set listchars=tab:>\ ,trail:-
+set listchars+=extends:>,precedes:<
+set listchars+=nbsp:+
+set list
+set nosmartcase
+set number
+set scrolloff=3
+set showcmd
+set showmatch
+if exists("+spelllang")
+  set spelllang=en_us
 endif
-
+set vb " disable beep sound
+set wildmode=list:longest,full
+ 
+colorscheme ir_black
+ 
+" Syntax
 syntax on
+filetype on
+filetype plugin indent on
+source $VIMRUNTIME/macros/matchit.vim
+ 
+" disable help
+map <F1> <Esc>
+imap <F1> <Esc>
+ 
+" allml
+inoremap <M-o> <Esc>o
+inoremap <C-j> <Down>
+let g:allml_global_maps = 1
+ 
+autocmd BufRead *.py set smartindent cinwords=if,elif,else,for,while,try,except,finally,def,class ts=4 sts=4 et sw=4
+autocmd BufWritePre *.py normal m`:%s/\s\+$//e ``
+ 
+autocmd BufRead *.rb set ts=2 sts=2 sw=2
+autocmd BufRead *.html,*.rhtml,*.erb set ts=2 sts=2 sw=2
+ 
+" autocmd FileType python set omnifunc=pythoncomplete#Complete
+ 
+" mappings
+inoremap <silent> <C-F> <Right>
+noremap <C-T> :e **/
+ 
+" Nerd Commenter
+map <silent> \\ ,c<space>
+ 
+" ################### aedit plugin ########################
+set backspace=indent,eol,start
+set backupext=.bak
+if has('win32')
+  set backupdir=c:\windows\temp directory=c:\windows\temp
+  set tags=c:\.vimtags
+else
+  set backupdir=/tmp directory=/tmp
+  set tags=/tmp/.vimtags
+endif
+set history=10000 incsearch
+set ignorecase smartcase
+set undolevels=10000
+set display="lastline,uhex"
+set splitbelow
+set whichwrap=<,>,h,l,b,s,~,[,] wildcharm=<Tab> wildmenu
+set wildmode=list:longest,full
+set laststatus=2 linebreak
+set statusline=%<%f%(\ [%M%R%H%W]%)%=%(%<\ %o\ %02c%02V\ [%l/%L:%03p]%)
+set printheader=%<%t\ %y%=%02p%%\ %02N
+ 
+" Convenience shortcuts
+command! CD cd %:p:h
+ 
+" Use <M-d> to delete the rest of the word
+inoremap <silent> <M-d> <C-o>cw<Esc><Right>
+ 
+" Use <C-a> as an alias to <Home>
+inoremap <silent> <C-a> <C-o>^
+ 
+" Use <C-e> as an alias to <End>
+inoremap <silent> <C-e> <End>
+ 
+" Use <F2> to toggle hlsearch
+nnoremap <silent> <F2> :let &hlsearch = !&hlsearch<CR>
+inoremap <silent> <F2> <C-o>:let &hlsearch = !&hlsearch<CR>
+ 
+" Use <Tab> to switch between windows and indent in visual mode
+nnoremap <Tab> <C-w>w
+nnoremap <S-Tab> <C-w>W
+vnoremap <silent> <Tab> >gv
+vnoremap <silent> <S-Tab> <gv
 
-set nohls           " do not highlight search matches
-set nowrap          " do not wrap long lines
-set incsearch       " show search matches while typing
-set ignorecase      " search is not case-sensitive
-set background=dark " syntax highlighting softer w/ black bg
-
-set autoindent      " maintain indention for new lines
-set smartindent     " indent blocks intelligently
-set shiftwidth=4    " use 4 spaces for 'smartindent'
-set tabstop=4       " TABs displayed as 4 spaces
-set expandtab       " TAB key produces spaces
-set showmatch       " indicate completed ( ) and { } and [ ]
-set matchtime=10    " showmatch for 1.0 second
