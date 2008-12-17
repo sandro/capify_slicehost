@@ -1,0 +1,19 @@
+if filereadable("/etc/vimrc")
+  source /etc/vimrc
+endif
+
+syntax on
+
+set nohls           " do not highlight search matches
+set nowrap          " do not wrap long lines
+set incsearch       " show search matches while typing
+set ignorecase      " search is not case-sensitive
+set background=dark " syntax highlighting softer w/ black bg
+
+set autoindent      " maintain indention for new lines
+set smartindent     " indent blocks intelligently
+set shiftwidth=4    " use 4 spaces for 'smartindent'
+set tabstop=4       " TABs displayed as 4 spaces
+set expandtab       " TAB key produces spaces
+set showmatch       " indicate completed ( ) and { } and [ ]
+set matchtime=10    " showmatch for 1.0 second

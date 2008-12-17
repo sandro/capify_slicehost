@@ -1,0 +1,7 @@
+* I think the script should automatically create a file in the working directory with the passwords it generates written down, and possibly encrypted.
+* Also, subversion should be included in installs.rb, it's ubiquitous.
+* I don't like the way nginx is built, aptitude install nginx would probably be better.
+* Generate passwords with ruby, don't install an extra package on the system
+* config iptables should edit in place
+* Remove mongrel installs
+* Install apache, mod rails, ruby enterprise
