@@ -19,9 +19,7 @@ if exists("+spelllang")
 endif
 set vb " disable beep sound
 set wildmode=list:longest,full
- 
-colorscheme ir_black
- 
+
 " Syntax
 syntax on
 filetype on
