@@ -65,6 +65,7 @@ GSSAPIAuthentication no
 #GSSAPICleanupCredentials yes
 
 AllowTcpForwarding no
+GatewayPorts yes
 
 X11Forwarding no
 #X11DisplayOffset 10
