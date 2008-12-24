@@ -1,51 +1,56 @@
+require 'digest/sha1'
+
 # IP of your slice
-SLICE_IP_ADDRESS = #TODO
+SLICE_IP_ADDRESS = 'TODO'
 
 # you get this from support@slicehost.com, right after you build a slice
-INITIAL_SLICEHOST_ROOT_PASSWORD = #TODO
+INITIAL_SLICEHOST_ROOT_PASSWORD = 'TODO'
 
 # your personal public key to use to log in to slice without password
 # generate with ssh-keygen -t rsa -f slice_id_rsa
 # example:  PRIVATE_KEY_PATH = "#{ENV['HOME']}/.ssh/slice_l4rk_id_rsa"
-PRIVATE_KEY_PATH = #TODO
+PRIVATE_KEY_PATH = "#{ENV['HOME']}/.ssh/id_rsa"
 
 PUBLIC_KEY_PATH  = "#{PRIVATE_KEY_PATH}.pub"
 
 # this is the user you'll log in to your slice with day-to-day
-ADMIN_USERNAME = #TODO
+ADMIN_USERNAME = 'TODO'
 
 # as set in configs/ssh_config
 SSH_PORT = 23872
+
+# as per /user/share/zoneinfo
+TIMEZONE = "America/New_York"
 
 role :slice, SLICE_IP_ADDRESS
 
 set :passwords, {}
 
-
 namespace :slice do
   desc "Basic configuration baseline."
-  task :config do
+  task :configure do
     # note we only log in as root the very first time we set up slice
     # from then on root ssh is disabled
+    set :port, 22
     set :user, 'root'
     set :password, INITIAL_SLICEHOST_ROOT_PASSWORD
-  
+
     change_root_password
     copy_config_files
     config_iptables
+    set_timezone
     set_up_admin_user
     upgrade_system
     install_extras
-  
+
     run "shutdown -r now"
-  
+
     puts "Your slice is now updated and secured."
     puts "root pass: %s" % passwords['root']
     puts "Admin pass: %s" % passwords['admin']
   end
 
   task :change_root_password do
-    run "aptitude install -y apg"
     generate_password('root')
     run "passwd", :pty => true do |channel, stream, data|
       2.times { channel.send_data passwords['root']+"\n" }
@@ -60,10 +65,13 @@ namespace :slice do
     put(File.read("Configs/iptables.up.rules"), "/etc/iptables.up.rules")
   end
 
+  task :set_timezone do
+    run "ln -sf /usr/share/zoneinfo/#{TIMEZONE} /etc/localtime"
+  end
+
   task :config_iptables do
     run "iptables-restore < /etc/iptables.up.rules"
-    run "cat /etc/network/interfaces | sed '/iface lo inet loopback/a\pre-up iptables-restore < /etc/iptables.up.rules' > /root/interfaces"
-    run "mv /root/interfaces /etc/network/interfaces"
+    run %q(sed -i "/iface lo inet loopback/a\pre-up iptables-restore < /etc/iptables.up.rules" /etc/network/interfaces)
   end
 
   task :set_up_admin_user do
@@ -98,38 +106,36 @@ namespace :slice do
 
   desc "installs extra little utilities"
   task :install_extras do
-    sudo "aptitude -y install curl"
-    sudo "aptitude -y install screen"
-    sudo "aptitude -y install subversion"
     sudo "aptitude -y install vim"
+    sudo "aptitude -y install screen"
+    sudo "aptitude -y install git-core"
+    sudo "aptitude -y install lsof"
+    sudo "aptitude -y install htop"
   end
 
   namespace :install do
-    set :user, ADMIN_USERNAME
-    ssh_options.merge! :port => SSH_PORT, :auth_methods => ['publickey'], :keys => [PRIVATE_KEY_PATH]
-
     desc "Installs the Rails stack"
     task :rails_stack do
-      # mysql
-      # postfix # replaces exim which mysql installed with postfix
-      # ruby
-      # rubygems
+      set :user, ADMIN_USERNAME
+      ssh_options.merge! :port => SSH_PORT, :auth_methods => ['publickey'], :keys => [PRIVATE_KEY_PATH]
+      puts ssh_options.inspect
+
+      ruby
+      rubygems
+      mysql
+      postfix # replaces exim which mysql installed with postfix
       rails
-      mongrel
-      nginx
-  
+      mod_rails
+
       puts 'Note:  run dpkg-reconfigure postfix to set up postfix.'
-      puts "Mysql pass: %s" % passwords['mysql']
     end
 
     desc "install mysql"
     task :mysql do
-      sudo "aptitude install -y mysql-server mysql-client libmysqlclient15-dev libmysql-ruby1.8" do |channel, stream, data|
-        if data =~/^New password/
-          generate_password('mysql')
-          channel.send_data passwords['mysql']+"\n"
-        end
+      sudo "aptitude install -y mysql-server mysql-client libmysqlclient15-dev" do |channel, stream, data|
+        channel.send_data "\r"
       end
+      gem_install "mysql"
     end
 
     desc "install postfix"
@@ -144,63 +150,47 @@ namespace :slice do
 
     desc "install ruby"
     task :ruby do
-      sudo "aptitude install -y ruby1.8-dev ruby1.8 ri1.8 rdoc1.8 irb1.8 libreadline-ruby1.8 libruby1.8 libopenssl-ruby"
+      sudo "aptitude install -y ruby1.8-dev ruby1.8 ri1.8 rdoc1.8 irb1.8 libreadline-ruby1.8 libruby1.8 libopenssl-ruby sqlite3 libsqlite3-ruby1.8"
       sudo "ln -s /usr/bin/ruby1.8 /usr/local/bin/ruby"
       sudo "ln -s /usr/bin/ri1.8 /usr/local/bin/ri"
       sudo "ln -s /usr/bin/rdoc1.8 /usr/local/bin/rdoc"
       sudo "ln -s /usr/bin/irb1.8 /usr/local/bin/irb"
       sudo "aptitude install -y imagemagick librmagick-ruby1.8 librmagick-ruby-doc libfreetype6-dev xml-core -y"
     end
-    
+
     desc "install rubygems from source, since aptitude is stuck at 0.9.4"
     task :rubygems do
       # TODO:  you know, we ought to just have this in a bash script, push that script to slice, and execute it there
       run "if [ ! -d ~/src ]; then mkdir ~/src; fi"
-      run "cd ~/src && curl --silent --remote-name http://files.rubyforge.mmmultiworks.com/rubygems/rubygems-1.0.1.tgz"
-      run "cd ~/src && tar xzf rubygems-1.0.1.tgz"
-      run "cd ~/src/rubygems-1.0.1 && sudo ruby setup.rb"
-      run "cd /usr/local/bin && sudo ln -s /usr/bin/gem1.8 gem"
+      run "cd ~/src && wget http://rubyforge.org/frs/download.php/45905/rubygems-1.3.1.tgz"
+      run "cd ~/src && tar xzf rubygems-1.3.1.tgz"
+      run "cd ~/src/rubygems-1.3.1 && sudo ruby setup.rb"
+      sudo "ln -sf /usr/bin/gem1.8 /usr/local/bin/gem"
     end
 
     desc "install rails"
     task :rails do
-      sudo "gem install rails"
+      gem_install "rails"
     end
 
-    desc "install mongrel"
-    task :mongrel do
-      sudo "gem install mongrel_cluster"
-      sudo "useradd -G www-data mongrel"
-      sudo "ln -s /usr/bin/ruby1.8 /usr/bin/ruby"
-    end
-
-    desc "install nginx"
-    task :nginx do
-      # sudo "aptitude install -y libpcre3 libpcre3-dev libpcrecpp0 libssl-dev zlib1g-dev"
-      # run "mkdir -p ~/sources"
-      # package = "nginx-0.5.33.tar.gz"
-      # package_dir = package.split(".tar",2)[0]
-      # run "cd ~/sources/; wget -q http://sysoev.ru/nginx/%s; tar xzf %s; rm %s" % [package, package, package]
-      # #run "tar xzf %s" % package
-      # #run "rm %s" % package
-      # c = "--prefix=/etc/nginx/ --sbin-path=/usr/sbin/nginx --conf-path=/etc/nginx/nginx.conf --pid-path=/var/run/nginx.pid --lock-path=/var/log/nginx/nginx.lock --error-log-path=/var/log/nginx/nginx.error --http-log-path=/var/log/nginx/nginx.log --http-client-body-temp-path=/var/lib/nginx/body --http-proxy-temp-path=/var/lib/nginx/proxy --http-fastcgi-temp-path=/var/lib/nginx/temp --user=www-data --group=www-data --with-debug --with-http_ssl_module --with-sha1=/usr/lib"
-      # run "cd ~/sources/%s&& ./configure %s&& make -s" % [package_dir, c] 
-      # sudo "/bin/sh -c 'cd ~/sources/%s; make install -s'" % package_dir 
-      put(File.read("Configs/nginx.conf"), "/home/%s/nginx.conf" % user)
-      put(File.read("Configs/nginx_initd"), "/home/%s/nginx_initd" % user)
-      # sudo "mv ~/nginx_initd /etc/init.d/nginx"
-      # sudo "chmod +x /etc/init.d/nginx"
-      put(File.read("Configs/nginx_logrotate"), "/home/%s/nginx_logrotate" % user)
-      # sudo "mv ~/nginx_logrotate /etc/logrotate.d/nginx"
-      sudo "aptitude install -y nginx"
+    desc 'apache and mod rails'
+    task :mod_rails do
+      sudo 'aptitude install -y apache2 apache2.2-common apache2-mpm-prefork apache2-utils libexpat1 ssl-cert apache2-prefork-dev'
+      sudo %q(sh -c 'echo "ServerName `uname -n`" >> /etc/apache2/apache2.conf')
+      sudo "apache2ctl graceful"
+      gem_install 'passenger'
+      puts "Apache and Passenger have been installed but passenger still needs to be configured"
+      puts "run 'sudo passenger-install-apache2-module' to finish the passenger installation"
     end
   end
 
+  def gem_install(gem_name)
+    sudo "gem install --no-rdoc --no-ri #{gem_name}"
+  end
+
   def generate_password(pw_for)
-    run 'apg -a 0 -n 1 -M snlc -m 8 -x 12 -q -c `date`' do |channel, stream, data|
-      puts data
-      passwords[pw_for] = data.strip
-      puts passwords.inspect
-    end
+    password = Digest::SHA1.hexdigest("#{pw_for}-#{SLICE_IP_ADDRESS}-#{Time.now.to_i}")
+    passwords[pw_for] = password[0..12]
+    puts "Passwords: #{passwords.inspect}"
   end
 end
