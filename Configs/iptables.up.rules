@@ -22,6 +22,9 @@
 #
 -A INPUT -p tcp -m state --state NEW --dport 23872 -j ACCEPT
 
+# Remove port 22 when finished setting up slice
+-A INPUT -p tcp -m state --state NEW --dport 22 -j ACCEPT
+
 # Allow ping
 -A INPUT -p icmp -m icmp --icmp-type 8 -j ACCEPT
 
