@@ -1,0 +1,12 @@
+h1. Instructions
+
+h3. Depends on Capistrano 2+
+
+# mv Capfile.example Capfile
+# open Capfile in your favorite editor
+# Edit the variable at the top of the file
+# run cap slice:configure
+# run cap slice:install:rails_stack 
+
+Thanks to "Jon Larkowski":http://blog.l4rk.com/ for refactoring the recipe to what it is today and sacrificing his slice to endless rebuilds while testing the recipe.
+
