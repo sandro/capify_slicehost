@@ -4,7 +4,7 @@ h3. Depends on Capistrano 2+
 
 # mv Capfile.example Capfile
 # open Capfile in your favorite editor
-# Edit the variable at the top of the file
+# Edit the TODOs at the top of the file
 # run cap slice:configure
 # run cap slice:install:rails_stack 
 
